@@ -2,41 +2,69 @@ package dev.sadovnikov.architecture;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.EditText;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
+import butterknife.BindString;
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.ObservableTransformer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.disposables.Disposables;
-import io.reactivex.internal.disposables.DisposableContainer;
-import io.reactivex.observers.DisposableObserver;
 import io.reactivex.schedulers.Schedulers;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
+    @BindString(R.string.Superbutton)
+    String superButton;
+
+    @BindView(R.id.editText)
     EditText editText;
 
-    @SuppressLint("CheckResult")
+    @BindView(R.id.button)
+    Button button;
+
+    List<Hotel> hotels = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.bind(this);
+        button.setOnClickListener(v -> Log.i(TAG, "onCreate: mimi"));
+        editText.setText(superButton);
 
-        editText = findViewById(R.id.editText);
+        if (savedInstanceState == null){
+            Log.d(TAG, "onCreate: null");
+            OttService ottService = ApiFactory.getOttSevice();
+            Disposable disposable = ottService.getHotels()
+                    .map(stringListMap -> stringListMap.get("hotels"))
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribeOn(Schedulers.io())
+                    .cache()
+                    .subscribe(hotels -> {
+                        this.hotels = hotels;
+                        Log.i(TAG, "onNext: " + this.hotels);
+                    });
+        } else {
+            Log.d(TAG, "onCreate: notNull");
+            hotels = (List<Hotel>) savedInstanceState.getSerializable("hotels");
+            Log.d(TAG, "onCreate: " + savedInstanceState.getSerializable("hotels"));
+        }
 
-//        Observable<Integer> observable = Observable.just(1, 2, 4, 8);
+
+        //ViewCollections.set(editText, View.ALPHA, 0.0F);
+
+        //        Observable<Integer> observable = Observable.just(1, 2, 4, 8);
 //        observable.subscribe(new Observer<Integer>() {
 //            @Override
 //            public void onSubscribe(Disposable d) {
@@ -103,28 +131,28 @@ public class MainActivity extends AppCompatActivity {
 //                .zip(observable1, observable4, Bukvoed::kaka)
 //                .subscribe(s -> Log.d(TAG, "onCreate: " + s));
 
-        OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url("http://publicobject.com/helloworld.txt").build();
-
-        Log.d(TAG, "onCreate: " + Thread.currentThread().getName());
-        Observable<Response> responseObservable = Observable.fromCallable(() -> client.newCall(request).execute());
-        Disposable disposable = responseObservable
-                .map(response -> {
-                    Log.d(TAG, "onMap1" + ", " + Thread.currentThread().getName());
-                    return response.body() != null ? response.body().string() : "Пустота";
-                })
-                .flatMap(s -> Observable.fromArray(new String[]{s, s}))
-                .map(s -> {
-                            Log.d(TAG, "onMap2" + ", " + Thread.currentThread().getName());
-                            return s + s;
-                        }
-                )
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeOn(Schedulers.io())
-                .subscribe(s -> Log.i(TAG, "onNext: " + s));
-        CompositeDisposable compositeDisposable = new CompositeDisposable();
-        compositeDisposable.add(disposable);
-        compositeDisposable.dispose();
+//        OkHttpClient client = new OkHttpClient();
+//        Request request = new Request.Builder().url("http://publicobject.com/helloworld.txt").build();
+//
+//        Log.d(TAG, "onCreate: " + Thread.currentThread().getName());
+//        Observable<Response> responseObservable = Observable.fromCallable(() -> client.newCall(request).execute());
+//        Disposable disposable = responseObservable
+//                .map(response -> {
+//                    Log.d(TAG, "onMap1" + ", " + Thread.currentThread().getName());
+//                    return response.body() != null ? response.body().string() : "Пустота";
+//                })
+//                .flatMap(s -> Observable.fromArray(new String[]{s, s}))
+//                .map(s -> {
+//                            Log.d(TAG, "onMap2" + ", " + Thread.currentThread().getName());
+//                            return s + s;
+//                        }
+//                )
+//                .observeOn(AndroidSchedulers.mainThread())
+//                .subscribeOn(Schedulers.io())
+//                .subscribe(s -> Log.i(TAG, "onNext: " + s));
+//        CompositeDisposable compositeDisposable = new CompositeDisposable();
+//        compositeDisposable.add(disposable);
+//        compositeDisposable.dispose();
 
 
 //        Observable<Object> observable = Observable.create(emitter -> client.newCall(request).enqueue(
@@ -185,38 +213,29 @@ public class MainActivity extends AppCompatActivity {
 //                    return RxSQLite.get().querySingle(CityTable.TABLE).compose(RxSchedulers.async());
 //                })
 
-        Observable<String> observable = Observable.just("Hello");
-        Observable<String> observable1 = observable.map(String::toUpperCase);
     }
 
 
-    static class Bukvoed {
-        String s;
-        int i;
-
-        public Bukvoed(int i, String s) {
-            this.s = s;
-            this.i = i;
-        }
-
-        static String kaka(Integer i, String s) {
-            ArrayList<String> strings = new ArrayList<>();
-            strings.add("qqq1");
-            strings.add("wwww1");
-
-            return s + " : " + i;
-        }
-
-        @NonNull
-        @Override
-        public String toString() {
-            return s + " : " + i;
-        }
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        Log.d(TAG, "onRestoreInstanceState: ");
     }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        Log.d(TAG, "onSaveInstanceState: ");
+        outState.putSerializable("hotels", (Serializable) hotels);
+    }
 
-    class AsyncTransformer<T> implements ObservableTransformer<T, String>,
-            Child {
+    @Override
+    protected void onDestroy() {
+
+        super.onDestroy();
+    }
+
+    class AsyncTransformer<T> implements ObservableTransformer<T, String> {
 
         @Override
         public ObservableSource<String> apply(Observable<T> upstream) {
@@ -226,25 +245,7 @@ public class MainActivity extends AppCompatActivity {
                     .observeOn(AndroidSchedulers.mainThread());
         }
 
-
-        @Override
-        public void method2() {
-
-        }
-
-        @Override
-        public void method1() {
-
-        }
     }
 
-    interface Parent {
-        void method1();
-    }
-
-    interface Child extends Parent {
-
-        void method2();
-    }
 
 }
